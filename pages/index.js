@@ -98,13 +98,17 @@ export default function Home() {
 
   const proximosPorTarefa = TAREFAS.map((t) => ({ tarefa: t, ...calcularProximo(t) }));
 
-  const historicoAgrupado = TAREFAS.map((t) => ({
-    tarefa: t,
-    registros: PESSOAS.map((p) => ({
-      pessoa: p,
-      entradas: registros.filter((r) => r.tarefa === t && r.pessoa === p),
-    })),
-  })).filter((grupo) => grupo.registros.some((r) => r.entradas.length > 0));
+  const [filtroPessoa, setFiltroPessoa] = useState("");
+  const [filtroTarefa, setFiltroTarefa] = useState("");
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 10;
+
+  const registrosFiltrados = registros
+    .filter((r) => (!filtroPessoa || r.pessoa === filtroPessoa) && (!filtroTarefa || r.tarefa === filtroTarefa))
+    .sort((a, b) => new Date(b.data) - new Date(a.data));
+
+  const totalPaginas = Math.ceil(registrosFiltrados.length / POR_PAGINA);
+  const registrosPagina = registrosFiltrados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
 
   return (
     <>
@@ -198,62 +202,83 @@ export default function Home() {
         )}
 
         {aba === "historico" && (
-          <div style={{ overflowX: "auto" }}>
-            {historicoAgrupado.length === 0 ? (
-              <div style={{ textAlign: "center", color: "#bbb", padding: 60, fontSize: 14 }}>Nenhum registro ainda.</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <select value={filtroPessoa} onChange={(e) => { setFiltroPessoa(e.target.value); setPagina(1); }} style={{
+                flex: 1, padding: "12px 14px", border: "1.5px solid #ede9e3", borderRadius: 10,
+                fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: filtroPessoa ? CORES[filtroPessoa] : "#fff",
+                color: "#444", outline: "none", cursor: "pointer",
+              }}>
+                <option value="">Todas as pessoas</option>
+                {PESSOAS.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <select value={filtroTarefa} onChange={(e) => { setFiltroTarefa(e.target.value); setPagina(1); }} style={{
+                flex: 1, padding: "12px 14px", border: "1.5px solid #ede9e3", borderRadius: 10,
+                fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: "#fff",
+                color: "#444", outline: "none", cursor: "pointer",
+              }}>
+                <option value="">Todas as tarefas</option>
+                {TAREFAS.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+
+            {registrosFiltrados.length === 0 ? (
+              <div style={{ textAlign: "center", color: "#bbb", padding: 60, fontSize: 15 }}>Nenhum registro encontrado.</div>
             ) : (
-              <div style={{ display: "flex", gap: 16, alignItems: "flex-start", minWidth: "max-content" }}>
-                {historicoAgrupado.map((grupo) => {
-                  const cols = grupo.registros.filter((r) => r.entradas.length > 0);
-                  const maxLinhas = Math.max(...cols.map((c) => c.entradas.length));
-                  return (
-                    <div key={grupo.tarefa} style={{ background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 20px rgba(0,0,0,0.05)", flex: "0 0 auto" }}>
-                      <div style={{ padding: "14px 20px", borderBottom: "1px solid #f0ece6" }}>
-                        <p style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#bbb", whiteSpace: "nowrap" }}>{grupo.tarefa}</p>
+              <>
+                <p style={{ fontSize: 13, color: "#aaa", textAlign: "right" }}>
+                  {registrosFiltrados.length} registro{registrosFiltrados.length !== 1 ? "s" : ""}
+                </p>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {registrosPagina.map((r) => (
+                    <div key={r.id} style={{
+                      background: "#fff", borderRadius: 14, padding: "18px 20px",
+                      boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
+                      borderLeft: `5px solid ${CORES[r.pessoa] || "#ddd"}`,
+                      display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                          <span style={{
+                            fontSize: 13, fontWeight: 600, padding: "4px 12px",
+                            background: CORES[r.pessoa] || "#eee", borderRadius: 20, color: "#444",
+                          }}>{r.pessoa}</span>
+                        </div>
+                        <p style={{ fontSize: 16, color: "#1a1a1a", fontWeight: 500, marginBottom: 6 }}>{r.tarefa}</p>
+                        <p style={{ fontSize: 13, color: "#999" }}>{formatarData(r.data)}</p>
                       </div>
-                      <table style={{ borderCollapse: "collapse" }}>
-                        <thead>
-                          <tr>
-                            {cols.map((col) => (
-                              <th key={col.pessoa} style={{
-                                padding: "10px 16px", textAlign: "left", fontSize: 12, fontWeight: 500,
-                                color: "#666", borderBottom: "1px solid #f0ece6",
-                                background: CORES[col.pessoa] + "44", whiteSpace: "nowrap",
-                              }}>
-                                {col.pessoa}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {Array.from({ length: maxLinhas }).map((_, i) => (
-                            <tr key={i} style={{ borderBottom: "1px solid #faf8f5" }}>
-                              {cols.map((col) => {
-                                const entrada = col.entradas[i];
-                                return (
-                                  <td key={col.pessoa} style={{ padding: "8px 16px", verticalAlign: "top", minWidth: 150 }}>
-                                    {entrada ? (
-                                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                                        <span style={{ fontSize: 12, color: "#444", whiteSpace: "nowrap" }}>{formatarData(entrada.data)}</span>
-                                        <button onClick={() => deletar(entrada.id)} style={{
-                                          background: "none", border: "none", color: "#ddd", cursor: "pointer",
-                                          fontSize: 13, padding: "2px 4px", borderRadius: 4, transition: "color 0.2s", flexShrink: 0,
-                                        }}
-                                          onMouseEnter={(e) => (e.target.style.color = "#e57373")}
-                                          onMouseLeave={(e) => (e.target.style.color = "#ddd")}>x</button>
-                                      </div>
-                                    ) : null}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      <button onClick={() => deletar(r.id)} style={{
+                        background: "#faf8f5", border: "1.5px solid #ede9e3", color: "#ccc",
+                        cursor: "pointer", fontSize: 18, width: 36, height: 36,
+                        borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 0.2s", flexShrink: 0,
+                      }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "#fdecea"; e.currentTarget.style.borderColor = "#e57373"; e.currentTarget.style.color = "#e57373"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "#faf8f5"; e.currentTarget.style.borderColor = "#ede9e3"; e.currentTarget.style.color = "#ccc"; }}>
+                        x
+                      </button>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+
+                {totalPaginas > 1 && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 8 }}>
+                    <button onClick={() => setPagina((p) => Math.max(1, p - 1))} disabled={pagina === 1} style={{
+                      padding: "10px 18px", border: "1.5px solid #ede9e3", borderRadius: 10, background: "#fff",
+                      fontSize: 14, cursor: pagina === 1 ? "not-allowed" : "pointer", color: pagina === 1 ? "#ccc" : "#444",
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}>anterior</button>
+                    <span style={{ fontSize: 14, color: "#888", padding: "0 8px" }}>{pagina} de {totalPaginas}</span>
+                    <button onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))} disabled={pagina === totalPaginas} style={{
+                      padding: "10px 18px", border: "1.5px solid #ede9e3", borderRadius: 10, background: "#fff",
+                      fontSize: 14, cursor: pagina === totalPaginas ? "not-allowed" : "pointer", color: pagina === totalPaginas ? "#ccc" : "#444",
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}>proximo</button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
