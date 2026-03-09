@@ -167,46 +167,46 @@ export default function Home() {
         )}
 
         {aba === "historico" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <div style={{ overflowX: "auto" }}>
             {historicoAgrupado.length === 0 ? (
               <div style={{ textAlign: "center", color: "#bbb", padding: 60, fontSize: 14 }}>Nenhum registro ainda.</div>
             ) : (
-              historicoAgrupado.map((grupo) => (
-                <div key={grupo.tarefa} style={{ background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 20px rgba(0,0,0,0.05)" }}>
-                  <div style={{ padding: "16px 24px", borderBottom: "1px solid #f0ece6" }}>
-                    <p style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#bbb" }}>{grupo.tarefa}</p>
-                  </div>
-                  <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                      <thead>
-                        <tr>
-                          {grupo.registros.filter((r) => r.entradas.length > 0).map((col) => (
-                            <th key={col.pessoa} style={{
-                              padding: "12px 20px", textAlign: "left", fontSize: 12, fontWeight: 500,
-                              color: "#666", borderBottom: "1px solid #f0ece6",
-                              background: CORES[col.pessoa] + "44",
-                            }}>
-                              {col.pessoa}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(() => {
-                          const cols = grupo.registros.filter((r) => r.entradas.length > 0);
-                          const maxLinhas = Math.max(...cols.map((c) => c.entradas.length));
-                          return Array.from({ length: maxLinhas }).map((_, i) => (
+              <div style={{ display: "flex", gap: 16, alignItems: "flex-start", minWidth: "max-content" }}>
+                {historicoAgrupado.map((grupo) => {
+                  const cols = grupo.registros.filter((r) => r.entradas.length > 0);
+                  const maxLinhas = Math.max(...cols.map((c) => c.entradas.length));
+                  return (
+                    <div key={grupo.tarefa} style={{ background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 20px rgba(0,0,0,0.05)", flex: "0 0 auto" }}>
+                      <div style={{ padding: "14px 20px", borderBottom: "1px solid #f0ece6" }}>
+                        <p style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#bbb", whiteSpace: "nowrap" }}>{grupo.tarefa}</p>
+                      </div>
+                      <table style={{ borderCollapse: "collapse" }}>
+                        <thead>
+                          <tr>
+                            {cols.map((col) => (
+                              <th key={col.pessoa} style={{
+                                padding: "10px 16px", textAlign: "left", fontSize: 12, fontWeight: 500,
+                                color: "#666", borderBottom: "1px solid #f0ece6",
+                                background: CORES[col.pessoa] + "44", whiteSpace: "nowrap",
+                              }}>
+                                {col.pessoa}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Array.from({ length: maxLinhas }).map((_, i) => (
                             <tr key={i} style={{ borderBottom: "1px solid #faf8f5" }}>
                               {cols.map((col) => {
                                 const entrada = col.entradas[i];
                                 return (
-                                  <td key={col.pessoa} style={{ padding: "10px 20px", verticalAlign: "top", minWidth: 160 }}>
+                                  <td key={col.pessoa} style={{ padding: "8px 16px", verticalAlign: "top", minWidth: 150 }}>
                                     {entrada ? (
                                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                                        <span style={{ fontSize: 13, color: "#444" }}>{formatarData(entrada.data)}</span>
+                                        <span style={{ fontSize: 12, color: "#444", whiteSpace: "nowrap" }}>{formatarData(entrada.data)}</span>
                                         <button onClick={() => deletar(entrada.id)} style={{
                                           background: "none", border: "none", color: "#ddd", cursor: "pointer",
-                                          fontSize: 14, padding: "2px 6px", borderRadius: 4, transition: "color 0.2s", flexShrink: 0,
+                                          fontSize: 13, padding: "2px 4px", borderRadius: 4, transition: "color 0.2s", flexShrink: 0,
                                         }}
                                           onMouseEnter={(e) => (e.target.style.color = "#e57373")}
                                           onMouseLeave={(e) => (e.target.style.color = "#ddd")}>x</button>
@@ -216,13 +216,13 @@ export default function Home() {
                                 );
                               })}
                             </tr>
-                          ));
-                        })()}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}
