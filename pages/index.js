@@ -4,6 +4,7 @@ import Head from "next/head";
 const PESSOAS = ["Ane", "Gabriele", "Duda", "Nida"];
 const TAREFAS = ["Almoco de domingo", "Limpar fogao", "Limpar area externa", "Limpar casa papai"];
 const CORES = { Ane: "#e8b4b8", Gabriele: "#b4d4e8", Duda: "#b4e8c4", Nida: "#e8ddb4" };
+const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
 
 export default function Home() {
   const [pessoa, setPessoa] = useState("");
@@ -59,10 +60,20 @@ export default function Home() {
   function formatarData(d) {
     if (!d) return "";
     const partes = d.split("T")[0].split("-");
-    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    const date = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+    const diaSemana = DIAS[date.getDay()];
+    return `${diaSemana}, ${partes[2]}/${partes[1]}/${partes[0]}`;
   }
 
   const maxTotal = stats?.porPessoa?.length > 0 ? Math.max(...stats.porPessoa.map((p) => Number(p.total))) : 1;
+
+  const historicoAgrupado = TAREFAS.map((t) => ({
+    tarefa: t,
+    registros: PESSOAS.map((p) => ({
+      pessoa: p,
+      entradas: registros.filter((r) => r.tarefa === t && r.pessoa === p),
+    })),
+  })).filter((grupo) => grupo.registros.some((r) => r.entradas.length > 0));
 
   return (
     <>
@@ -79,7 +90,7 @@ export default function Home() {
         h1 { font-family: 'DM Serif Display', serif; font-weight: 400; }
       `}</style>
 
-      <div style={{ maxWidth: 680, margin: "0 auto", padding: "40px 20px" }}>
+      <div style={{ maxWidth: 780, margin: "0 auto", padding: "40px 20px" }}>
 
         <div style={{ marginBottom: 40, textAlign: "center" }}>
           <p style={{ fontSize: 11, letterSpacing: 3, textTransform: "uppercase", color: "#999", marginBottom: 8 }}>organizacao</p>
@@ -156,33 +167,62 @@ export default function Home() {
         )}
 
         {aba === "historico" && (
-          <div>
-            {registros.length === 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            {historicoAgrupado.length === 0 ? (
               <div style={{ textAlign: "center", color: "#bbb", padding: 60, fontSize: 14 }}>Nenhum registro ainda.</div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {registros.map((r) => (
-                  <div key={r.id} style={{
-                    background: "#fff", borderRadius: 12, padding: "16px 20px",
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    boxShadow: "0 1px 8px rgba(0,0,0,0.04)", borderLeft: `4px solid ${CORES[r.pessoa] || "#ddd"}`,
-                  }}>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                        <span style={{ fontSize: 12, fontWeight: 500, padding: "3px 10px", background: CORES[r.pessoa] || "#eee", borderRadius: 20, color: "#444" }}>{r.pessoa}</span>
-                        <span style={{ fontSize: 12, color: "#bbb" }}>{formatarData(r.data)}</span>
-                      </div>
-                      <p style={{ fontSize: 14, color: "#444" }}>{r.tarefa}</p>
-                    </div>
-                    <button onClick={() => deletar(r.id)} style={{
-                      background: "none", border: "none", color: "#ddd", cursor: "pointer",
-                      fontSize: 18, padding: "4px 8px", borderRadius: 6, transition: "color 0.2s",
-                    }}
-                      onMouseEnter={(e) => (e.target.style.color = "#e57373")}
-                      onMouseLeave={(e) => (e.target.style.color = "#ddd")}>x</button>
+              historicoAgrupado.map((grupo) => (
+                <div key={grupo.tarefa} style={{ background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 20px rgba(0,0,0,0.05)" }}>
+                  <div style={{ padding: "16px 24px", borderBottom: "1px solid #f0ece6" }}>
+                    <p style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#bbb" }}>{grupo.tarefa}</p>
                   </div>
-                ))}
-              </div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead>
+                        <tr>
+                          {grupo.registros.filter((r) => r.entradas.length > 0).map((col) => (
+                            <th key={col.pessoa} style={{
+                              padding: "12px 20px", textAlign: "left", fontSize: 12, fontWeight: 500,
+                              color: "#666", borderBottom: "1px solid #f0ece6",
+                              background: CORES[col.pessoa] + "44",
+                            }}>
+                              {col.pessoa}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const cols = grupo.registros.filter((r) => r.entradas.length > 0);
+                          const maxLinhas = Math.max(...cols.map((c) => c.entradas.length));
+                          return Array.from({ length: maxLinhas }).map((_, i) => (
+                            <tr key={i} style={{ borderBottom: "1px solid #faf8f5" }}>
+                              {cols.map((col) => {
+                                const entrada = col.entradas[i];
+                                return (
+                                  <td key={col.pessoa} style={{ padding: "10px 20px", verticalAlign: "top", minWidth: 160 }}>
+                                    {entrada ? (
+                                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                        <span style={{ fontSize: 13, color: "#444" }}>{formatarData(entrada.data)}</span>
+                                        <button onClick={() => deletar(entrada.id)} style={{
+                                          background: "none", border: "none", color: "#ddd", cursor: "pointer",
+                                          fontSize: 14, padding: "2px 6px", borderRadius: 4, transition: "color 0.2s", flexShrink: 0,
+                                        }}
+                                          onMouseEnter={(e) => (e.target.style.color = "#e57373")}
+                                          onMouseLeave={(e) => (e.target.style.color = "#ddd")}>x</button>
+                                      </div>
+                                    ) : null}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         )}
