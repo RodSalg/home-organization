@@ -15,6 +15,7 @@ export default function Home() {
   const [aba, setAba] = useState("registrar");
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState(null);
+  const [confirmacao, setConfirmacao] = useState(null);
 
   useEffect(() => { carregarRegistros(); carregarStats(); }, []);
 
@@ -51,8 +52,13 @@ export default function Home() {
     }
   }
 
-  async function deletar(id) {
-    await fetch(`/api/registros/${id}`, { method: "DELETE" });
+  function pedirConfirmacao(registro) {
+    setConfirmacao(registro);
+  }
+
+  async function confirmarDelecao() {
+    await fetch(`/api/registros/${confirmacao.id}`, { method: "DELETE" });
+    setConfirmacao(null);
     carregarRegistros();
     carregarStats();
   }
@@ -125,11 +131,45 @@ export default function Home() {
         h1 { font-family: 'DM Serif Display', serif; font-weight: 400; }
       `}</style>
 
+      {confirmacao && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: "20px",
+        }} onClick={() => setConfirmacao(null)}>
+          <div style={{
+            background: "#fff", borderRadius: 20, padding: "32px 28px", maxWidth: 380, width: "100%",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+          }} onClick={(e) => e.stopPropagation()}>
+            <p style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#bbb", marginBottom: 16 }}>confirmar exclusao</p>
+            <p style={{ fontSize: 15, color: "#1a1a1a", marginBottom: 20, lineHeight: 1.5 }}>
+              Tem certeza que deseja apagar este registro?
+            </p>
+            <div style={{ background: "#faf8f5", borderRadius: 12, padding: "16px", marginBottom: 24, borderLeft: `4px solid ${CORES[confirmacao.pessoa] || "#ddd"}` }}>
+              <span style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", background: CORES[confirmacao.pessoa] || "#eee", borderRadius: 20, color: "#444", display: "inline-block", marginBottom: 10 }}>{confirmacao.pessoa}</span>
+              <p style={{ fontSize: 15, fontWeight: 500, color: "#1a1a1a", marginBottom: 4 }}>{confirmacao.tarefa}</p>
+              <p style={{ fontSize: 13, color: "#999" }}>{formatarData(confirmacao.data)}</p>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setConfirmacao(null)} style={{
+                flex: 1, padding: "12px", border: "1.5px solid #ede9e3", borderRadius: 10,
+                background: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif",
+                cursor: "pointer", color: "#666",
+              }}>Cancelar</button>
+              <button onClick={confirmarDelecao} style={{
+                flex: 1, padding: "12px", border: "none", borderRadius: 10,
+                background: "#e57373", fontSize: 14, fontFamily: "'DM Sans', sans-serif",
+                cursor: "pointer", color: "#fff", fontWeight: 500,
+              }}>Apagar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ maxWidth: 780, margin: "0 auto", padding: "40px 20px" }}>
 
         <div style={{ marginBottom: 40, textAlign: "center" }}>
           <p style={{ fontSize: 11, letterSpacing: 3, textTransform: "uppercase", color: "#999", marginBottom: 8 }}>organizacao</p>
-          <h1 style={{ fontSize: 36, color: "#1a1a1a", lineHeight: 1.1 }}>Tarefas da Casa do Thiagao</h1>
+          <h1 style={{ fontSize: 36, color: "#1a1a1a", lineHeight: 1.1 }}>Tarefas da Casa</h1>
           <div style={{ width: 40, height: 2, background: "#d4a896", margin: "16px auto 0" }} />
         </div>
 
@@ -249,7 +289,7 @@ export default function Home() {
                         <p style={{ fontSize: 16, color: "#1a1a1a", fontWeight: 500, marginBottom: 6 }}>{r.tarefa}</p>
                         <p style={{ fontSize: 13, color: "#999" }}>{formatarData(r.data)}</p>
                       </div>
-                      <button onClick={() => deletar(r.id)} style={{
+                      <button onClick={() => pedirConfirmacao(r)} style={{
                         background: "#faf8f5", border: "1.5px solid #ede9e3", color: "#ccc",
                         cursor: "pointer", fontSize: 18, width: 36, height: 36,
                         borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
