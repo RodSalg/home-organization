@@ -129,7 +129,7 @@ export default function Home() {
 
         <div style={{ marginBottom: 40, textAlign: "center" }}>
           <p style={{ fontSize: 11, letterSpacing: 3, textTransform: "uppercase", color: "#999", marginBottom: 8 }}>organizacao</p>
-          <h1 style={{ fontSize: 36, color: "#1a1a1a", lineHeight: 1.1 }}>Tarefas da Casa</h1>
+          <h1 style={{ fontSize: 36, color: "#1a1a1a", lineHeight: 1.1 }}>Tarefas da Casa do Thiagao</h1>
           <div style={{ width: 40, height: 2, background: "#d4a896", margin: "16px auto 0" }} />
         </div>
 
