@@ -253,11 +253,11 @@ export default function Home() {
 
             <div style={{ background: "#fff", borderRadius: 16, padding: 28, boxShadow: "0 2px 20px rgba(0,0,0,0.05)" }}>
               <p style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#bbb", marginBottom: 20 }}>ultimos 30 dias</p>
-              {stats.ultimaMes.length === 0 ? (
+              {stats.ultimosPorTarefa.length === 0 ? (
                 <p style={{ fontSize: 14, color: "#bbb" }}>Nenhum registro neste periodo.</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {stats.ultimaMes.map((r, i) => (
+                  {stats.ultimosPorTarefa.map((r, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "8px 0", borderBottom: "1px solid #f5f2ee" }}>
                       <span style={{ color: "#444" }}>{r.tarefa}</span>
                       <div style={{ display: "flex", gap: 12 }}>
