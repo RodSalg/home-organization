@@ -67,6 +67,37 @@ export default function Home() {
 
   const maxTotal = stats?.porPessoa?.length > 0 ? Math.max(...stats.porPessoa.map((p) => Number(p.total))) : 1;
 
+  const ORDEM_CIRCULAR = ["Ane", "Duda", "Gabriele", "Nida"];
+
+  function calcularProximo(tarefa) {
+    const totaisPorPessoa = ORDEM_CIRCULAR.map((p) => ({
+      pessoa: p,
+      total: registros.filter((r) => r.tarefa === tarefa && r.pessoa === p).length,
+    }));
+
+    const minTotal = Math.min(...totaisPorPessoa.map((p) => p.total));
+    const comMenos = totaisPorPessoa.filter((p) => p.total === minTotal);
+
+    if (comMenos.length === ORDEM_CIRCULAR.length) {
+      const ultimaFeita = registros
+        .filter((r) => r.tarefa === tarefa)
+        .sort((a, b) => new Date(b.data) - new Date(a.data))[0];
+      if (!ultimaFeita) return { pessoa: ORDEM_CIRCULAR[0], motivo: "seguindo a ordem circular, nenhuma feita ainda" };
+      const idxUltima = ORDEM_CIRCULAR.indexOf(ultimaFeita.pessoa);
+      const proxima = ORDEM_CIRCULAR[(idxUltima + 1) % ORDEM_CIRCULAR.length];
+      return { pessoa: proxima, motivo: `seguindo a ordem circular, ultima foi ${ultimaFeita.pessoa}` };
+    }
+
+    if (comMenos.length === 1) {
+      return { pessoa: comMenos[0].pessoa, motivo: `fez menos vezes (${comMenos[0].total}x)` };
+    }
+
+    const proximaNaOrdem = ORDEM_CIRCULAR.find((p) => comMenos.some((c) => c.pessoa === p));
+    return { pessoa: proximaNaOrdem, motivo: `empatada com menos vezes (${minTotal}x), seguindo a ordem circular` };
+  }
+
+  const proximosPorTarefa = TAREFAS.map((t) => ({ tarefa: t, ...calcularProximo(t) }));
+
   const historicoAgrupado = TAREFAS.map((t) => ({
     tarefa: t,
     registros: PESSOAS.map((p) => ({
@@ -229,6 +260,23 @@ export default function Home() {
 
         {aba === "estatisticas" && stats && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+            <div style={{ background: "#fff", borderRadius: 16, padding: 28, boxShadow: "0 2px 20px rgba(0,0,0,0.05)" }}>
+              <p style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#bbb", marginBottom: 20 }}>proxima por tarefa</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {proximosPorTarefa.map((item) => (
+                  <div key={item.tarefa} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, padding: "14px 0", borderBottom: "1px solid #f5f2ee" }}>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 13, color: "#888", marginBottom: 6 }}>{item.tarefa}</p>
+                      <p style={{ fontSize: 12, color: "#bbb", fontStyle: "italic" }}>porque {item.motivo}</p>
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 500, padding: "6px 16px", borderRadius: 20, background: CORES[item.pessoa] || "#eee", color: "#444", whiteSpace: "nowrap", flexShrink: 0 }}>
+                      {item.pessoa}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             <div style={{ background: "#fff", borderRadius: 16, padding: 28, boxShadow: "0 2px 20px rgba(0,0,0,0.05)" }}>
               <p style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#bbb", marginBottom: 20 }}>total por pessoa</p>
