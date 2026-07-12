@@ -4,6 +4,25 @@ export default async function handler(req, res) {
   await initDb();
   const sql = getDb();
 
+  if (req.method === "PUT") {
+    const { id } = req.query;
+    const { pessoa, tarefa, data } = req.body;
+
+    if (!pessoa || !tarefa || !data) {
+      return res.status(400).json({ error: "Campos obrigatorios ausentes" });
+    }
+
+    const [atualizado] = await sql`
+      UPDATE registros
+      SET pessoa = ${pessoa}, tarefa = ${tarefa}, data = ${data}
+      WHERE id = ${id}
+      RETURNING *
+    `;
+
+    if (!atualizado) return res.status(404).json({ error: "Registro nao encontrado" });
+    return res.status(200).json(atualizado);
+  }
+
   if (req.method === "DELETE") {
     const { id } = req.query;
 
