@@ -1,409 +1,115 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
-
-const PESSOAS = ["Ane", "Gabriele", "Duda", "Nida"];
-const TAREFAS = ["Almoco de domingo", "Limpar fogao", "Limpar area externa", "Limpar casa papai"];
-const CORES = { Ane: "#e8b4b8", Gabriele: "#b4d4e8", Duda: "#b4e8c4", Nida: "#e8ddb4" };
-const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
+import styles from "../styles/Home.module.css";
+import Header from "../components/Header";
+import TabBar from "../components/TabBar";
+import Toast from "../components/Toast";
+import RegistroSheet from "../components/RegistroSheet";
+import ConfirmSheet from "../components/ConfirmSheet";
+import HistoricoList from "../components/HistoricoList";
+import Estatisticas from "../components/Estatisticas";
 
 export default function Home() {
-  const [pessoa, setPessoa] = useState("");
-  const [tarefa, setTarefa] = useState("");
-  const [data, setData] = useState("");
+  const [aba, setAba] = useState("historico");
   const [registros, setRegistros] = useState([]);
   const [stats, setStats] = useState(null);
-  const [aba, setAba] = useState("registrar");
-  const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState(null);
+  const [sheetRegistro, setSheetRegistro] = useState(null);
+  const [sheetAberta, setSheetAberta] = useState(false);
   const [confirmacao, setConfirmacao] = useState(null);
 
   useEffect(() => { carregarRegistros(); carregarStats(); }, []);
 
   async function carregarRegistros() {
     const res = await fetch("/api/registros");
-    const data = await res.json();
-    setRegistros(data);
+    const dados = await res.json();
+    setRegistros(dados);
   }
 
   async function carregarStats() {
     const res = await fetch("/api/stats");
-    const data = await res.json();
-    setStats(data);
+    const dados = await res.json();
+    setStats(dados);
   }
 
-  async function salvar() {
-    if (!pessoa || !tarefa || !data) {
-      setMensagem({ tipo: "erro", texto: "Preencha todos os campos." });
-      return;
-    }
-    setSalvando(true);
-    const res = await fetch("/api/registros", {
-      method: "POST",
+  function mostrarMensagem(tipo, texto) {
+    setMensagem({ tipo, texto });
+    setTimeout(() => setMensagem(null), 2600);
+  }
+
+  function abrirNovoRegistro() {
+    setSheetRegistro(null);
+    setSheetAberta(true);
+  }
+
+  function abrirEdicaoRegistro(registro) {
+    setSheetRegistro(registro);
+    setSheetAberta(true);
+  }
+
+  function fecharSheetRegistro() {
+    setSheetAberta(false);
+    setSheetRegistro(null);
+  }
+
+  async function salvarRegistro({ id, pessoa, tarefa, data }) {
+    const url = id ? `/api/registros/${id}` : "/api/registros";
+    const method = id ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+      method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pessoa, tarefa, data }),
     });
-    setSalvando(false);
+
     if (res.ok) {
-      setMensagem({ tipo: "ok", texto: "Registrado com sucesso!" });
-      setPessoa(""); setTarefa(""); setData("");
+      fecharSheetRegistro();
+      mostrarMensagem("ok", id ? "Registro atualizado!" : "Registrado com sucesso!");
       carregarRegistros();
       carregarStats();
-      setTimeout(() => setMensagem(null), 3000);
+    } else {
+      mostrarMensagem("erro", "Nao foi possivel salvar o registro.");
     }
   }
 
-  function pedirConfirmacao(registro) {
-    setConfirmacao(registro);
-  }
-
-  async function confirmarDelecao() {
+  async function confirmarExclusao() {
     await fetch(`/api/registros/${confirmacao.id}`, { method: "DELETE" });
     setConfirmacao(null);
+    mostrarMensagem("ok", "Registro excluido.");
     carregarRegistros();
     carregarStats();
   }
-
-  function formatarData(d) {
-    if (!d) return "";
-    const partes = d.split("T")[0].split("-");
-    const date = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
-    const diaSemana = DIAS[date.getDay()];
-    return `${diaSemana}, ${partes[2]}/${partes[1]}/${partes[0]}`;
-  }
-
-  const maxTotal = stats?.porPessoa?.length > 0 ? Math.max(...stats.porPessoa.map((p) => Number(p.total))) : 1;
-
-  const ORDEM_CIRCULAR = ["Ane", "Duda", "Gabriele", "Nida"];
-
-  function calcularProximo(tarefa) {
-    const totaisPorPessoa = ORDEM_CIRCULAR.map((p) => ({
-      pessoa: p,
-      total: registros.filter((r) => r.tarefa === tarefa && r.pessoa === p).length,
-    }));
-
-    const minTotal = Math.min(...totaisPorPessoa.map((p) => p.total));
-    const comMenos = totaisPorPessoa.filter((p) => p.total === minTotal);
-
-    if (comMenos.length === ORDEM_CIRCULAR.length) {
-      const ultimaFeita = registros
-        .filter((r) => r.tarefa === tarefa)
-        .sort((a, b) => new Date(b.data) - new Date(a.data))[0];
-      if (!ultimaFeita) return { pessoa: ORDEM_CIRCULAR[0], motivo: "seguindo a ordem circular, nenhuma feita ainda" };
-      const idxUltima = ORDEM_CIRCULAR.indexOf(ultimaFeita.pessoa);
-      const proxima = ORDEM_CIRCULAR[(idxUltima + 1) % ORDEM_CIRCULAR.length];
-      return { pessoa: proxima, motivo: `seguindo a ordem circular, ultima foi ${ultimaFeita.pessoa}` };
-    }
-
-    if (comMenos.length === 1) {
-      return { pessoa: comMenos[0].pessoa, motivo: `fez menos vezes (${comMenos[0].total}x)` };
-    }
-
-    const proximaNaOrdem = ORDEM_CIRCULAR.find((p) => comMenos.some((c) => c.pessoa === p));
-    return { pessoa: proximaNaOrdem, motivo: `empatada com menos vezes (${minTotal}x), seguindo a ordem circular` };
-  }
-
-  const proximosPorTarefa = TAREFAS.map((t) => ({ tarefa: t, ...calcularProximo(t) }));
-
-  const [filtroPessoa, setFiltroPessoa] = useState("");
-  const [filtroTarefa, setFiltroTarefa] = useState("");
-  const [pagina, setPagina] = useState(1);
-  const POR_PAGINA = 10;
-
-  const registrosFiltrados = registros
-    .filter((r) => (!filtroPessoa || r.pessoa === filtroPessoa) && (!filtroTarefa || r.tarefa === filtroTarefa))
-    .sort((a, b) => new Date(b.data) - new Date(a.data));
-
-  const totalPaginas = Math.ceil(registrosFiltrados.length / POR_PAGINA);
-  const registrosPagina = registrosFiltrados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
 
   return (
     <>
       <Head>
         <title>Organizacao da Casa</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </Head>
 
-      <style jsx global>{`
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'DM Sans', sans-serif; background: #faf8f5; color: #2a2a2a; min-height: 100vh; }
-        h1 { font-family: 'DM Serif Display', serif; font-weight: 400; }
-      `}</style>
+      <div className={styles.page}>
+        <Header />
 
-      {confirmacao && (
-        <div style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000,
-          display: "flex", alignItems: "center", justifyContent: "center", padding: "20px",
-        }} onClick={() => setConfirmacao(null)}>
-          <div style={{
-            background: "#fff", borderRadius: 20, padding: "32px 28px", maxWidth: 380, width: "100%",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
-          }} onClick={(e) => e.stopPropagation()}>
-            <p style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#bbb", marginBottom: 16 }}>confirmar exclusao</p>
-            <p style={{ fontSize: 15, color: "#1a1a1a", marginBottom: 20, lineHeight: 1.5 }}>
-              Tem certeza que deseja apagar este registro?
-            </p>
-            <div style={{ background: "#faf8f5", borderRadius: 12, padding: "16px", marginBottom: 24, borderLeft: `4px solid ${CORES[confirmacao.pessoa] || "#ddd"}` }}>
-              <span style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", background: CORES[confirmacao.pessoa] || "#eee", borderRadius: 20, color: "#444", display: "inline-block", marginBottom: 10 }}>{confirmacao.pessoa}</span>
-              <p style={{ fontSize: 15, fontWeight: 500, color: "#1a1a1a", marginBottom: 4 }}>{confirmacao.tarefa}</p>
-              <p style={{ fontSize: 13, color: "#999" }}>{formatarData(confirmacao.data)}</p>
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setConfirmacao(null)} style={{
-                flex: 1, padding: "12px", border: "1.5px solid #ede9e3", borderRadius: 10,
-                background: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif",
-                cursor: "pointer", color: "#666",
-              }}>Cancelar</button>
-              <button onClick={confirmarDelecao} style={{
-                flex: 1, padding: "12px", border: "none", borderRadius: 10,
-                background: "#e57373", fontSize: 14, fontFamily: "'DM Sans', sans-serif",
-                cursor: "pointer", color: "#fff", fontWeight: 500,
-              }}>Apagar</button>
-            </div>
-          </div>
-        </div>
-      )}
+        <main className={styles.main}>
+          {aba === "historico" && (
+            <HistoricoList registros={registros} aoEditar={abrirEdicaoRegistro} aoExcluir={setConfirmacao} />
+          )}
 
-      <div style={{ maxWidth: 780, margin: "0 auto", padding: "40px 20px" }}>
+          {aba === "estatisticas" && stats && (
+            <Estatisticas registros={registros} stats={stats} />
+          )}
+        </main>
 
-        <div style={{ marginBottom: 40, textAlign: "center" }}>
-          <p style={{ fontSize: 11, letterSpacing: 3, textTransform: "uppercase", color: "#999", marginBottom: 8 }}>organizacao</p>
-          <h1 style={{ fontSize: 36, color: "#1a1a1a", lineHeight: 1.1 }}>Tarefas da Casa</h1>
-          <div style={{ width: 40, height: 2, background: "#d4a896", margin: "16px auto 0" }} />
-        </div>
+        <TabBar aba={aba} aoTrocarAba={setAba} aoAbrirNovo={abrirNovoRegistro} />
 
-        <div style={{ display: "flex", gap: 4, marginBottom: 32, background: "#ede9e3", borderRadius: 10, padding: 4 }}>
-          {["registrar", "historico", "estatisticas"].map((a) => (
-            <button key={a} onClick={() => setAba(a)} style={{
-              flex: 1, padding: "10px 0", border: "none", borderRadius: 8, cursor: "pointer",
-              fontSize: 13, fontFamily: "'DM Sans', sans-serif", fontWeight: 500, letterSpacing: 0.5,
-              textTransform: "capitalize", background: aba === a ? "#fff" : "transparent",
-              color: aba === a ? "#1a1a1a" : "#888",
-              boxShadow: aba === a ? "0 1px 4px rgba(0,0,0,0.08)" : "none", transition: "all 0.2s",
-            }}>{a}</button>
-          ))}
-        </div>
+        <Toast mensagem={mensagem} />
 
-        {aba === "registrar" && (
-          <div style={{ background: "#fff", borderRadius: 16, padding: 32, boxShadow: "0 2px 20px rgba(0,0,0,0.05)" }}>
-            <p style={{ fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#bbb", marginBottom: 24 }}>novo registro</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-              <div>
-                <label style={{ fontSize: 12, color: "#888", display: "block", marginBottom: 6, letterSpacing: 0.5 }}>Quem fez</label>
-                <select value={pessoa} onChange={(e) => setPessoa(e.target.value)} style={{
-                  width: "100%", padding: "12px 16px", border: `1.5px solid ${pessoa ? CORES[pessoa] : "#ede9e3"}`,
-                  borderRadius: 10, fontSize: 15, fontFamily: "'DM Sans', sans-serif",
-                  background: "#faf8f5", color: pessoa ? "#1a1a1a" : "#aaa", outline: "none", cursor: "pointer",
-                }}>
-                  <option value="">Selecione...</option>
-                  {PESSOAS.map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: 12, color: "#888", display: "block", marginBottom: 6, letterSpacing: 0.5 }}>Tarefa</label>
-                <select value={tarefa} onChange={(e) => setTarefa(e.target.value)} style={{
-                  width: "100%", padding: "12px 16px", border: "1.5px solid #ede9e3",
-                  borderRadius: 10, fontSize: 15, fontFamily: "'DM Sans', sans-serif",
-                  background: "#faf8f5", color: tarefa ? "#1a1a1a" : "#aaa", outline: "none", cursor: "pointer",
-                }}>
-                  <option value="">Selecione...</option>
-                  {TAREFAS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: 12, color: "#888", display: "block", marginBottom: 6, letterSpacing: 0.5 }}>Data</label>
-                <input type="date" value={data} onChange={(e) => setData(e.target.value)} style={{
-                  width: "100%", padding: "12px 16px", border: "1.5px solid #ede9e3",
-                  borderRadius: 10, fontSize: 15, fontFamily: "'DM Sans', sans-serif",
-                  background: "#faf8f5", color: "#1a1a1a", outline: "none",
-                }} />
-              </div>
-
-              {mensagem && (
-                <div style={{
-                  padding: "12px 16px", borderRadius: 10, fontSize: 13,
-                  background: mensagem.tipo === "ok" ? "#e8f5e9" : "#fdecea",
-                  color: mensagem.tipo === "ok" ? "#2e7d32" : "#c62828",
-                }}>{mensagem.texto}</div>
-              )}
-
-              <button onClick={salvar} disabled={salvando} style={{
-                padding: "14px", background: "#2a2a2a", color: "#fff", border: "none", borderRadius: 10,
-                fontSize: 14, fontFamily: "'DM Sans', sans-serif", fontWeight: 500, cursor: salvando ? "not-allowed" : "pointer",
-                opacity: salvando ? 0.7 : 1, letterSpacing: 0.5, transition: "opacity 0.2s",
-              }}>{salvando ? "Salvando..." : "Registrar"}</button>
-
-            </div>
-          </div>
+        {sheetAberta && (
+          <RegistroSheet registro={sheetRegistro} aoFechar={fecharSheetRegistro} aoSalvar={salvarRegistro} />
         )}
 
-        {aba === "historico" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-            <div style={{ display: "flex", gap: 10 }}>
-              <select value={filtroPessoa} onChange={(e) => { setFiltroPessoa(e.target.value); setPagina(1); }} style={{
-                flex: 1, padding: "12px 14px", border: "1.5px solid #ede9e3", borderRadius: 10,
-                fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: filtroPessoa ? CORES[filtroPessoa] : "#fff",
-                color: "#444", outline: "none", cursor: "pointer",
-              }}>
-                <option value="">Todas as pessoas</option>
-                {PESSOAS.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-              <select value={filtroTarefa} onChange={(e) => { setFiltroTarefa(e.target.value); setPagina(1); }} style={{
-                flex: 1, padding: "12px 14px", border: "1.5px solid #ede9e3", borderRadius: 10,
-                fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: "#fff",
-                color: "#444", outline: "none", cursor: "pointer",
-              }}>
-                <option value="">Todas as tarefas</option>
-                {TAREFAS.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-
-            {registrosFiltrados.length === 0 ? (
-              <div style={{ textAlign: "center", color: "#bbb", padding: 60, fontSize: 15 }}>Nenhum registro encontrado.</div>
-            ) : (
-              <>
-                <p style={{ fontSize: 13, color: "#aaa", textAlign: "right" }}>
-                  {registrosFiltrados.length} registro{registrosFiltrados.length !== 1 ? "s" : ""}
-                </p>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {registrosPagina.map((r) => (
-                    <div key={r.id} style={{
-                      background: "#fff", borderRadius: 14, padding: "18px 20px",
-                      boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
-                      borderLeft: `5px solid ${CORES[r.pessoa] || "#ddd"}`,
-                      display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
-                    }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                          <span style={{
-                            fontSize: 13, fontWeight: 600, padding: "4px 12px",
-                            background: CORES[r.pessoa] || "#eee", borderRadius: 20, color: "#444",
-                          }}>{r.pessoa}</span>
-                        </div>
-                        <p style={{ fontSize: 16, color: "#1a1a1a", fontWeight: 500, marginBottom: 6 }}>{r.tarefa}</p>
-                        <p style={{ fontSize: 13, color: "#999" }}>{formatarData(r.data)}</p>
-                      </div>
-                      <button onClick={() => pedirConfirmacao(r)} style={{
-                        background: "#faf8f5", border: "1.5px solid #ede9e3", color: "#ccc",
-                        cursor: "pointer", fontSize: 18, width: 36, height: 36,
-                        borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
-                        transition: "all 0.2s", flexShrink: 0,
-                      }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = "#fdecea"; e.currentTarget.style.borderColor = "#e57373"; e.currentTarget.style.color = "#e57373"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "#faf8f5"; e.currentTarget.style.borderColor = "#ede9e3"; e.currentTarget.style.color = "#ccc"; }}>
-                        x
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                {totalPaginas > 1 && (
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 8 }}>
-                    <button onClick={() => setPagina((p) => Math.max(1, p - 1))} disabled={pagina === 1} style={{
-                      padding: "10px 18px", border: "1.5px solid #ede9e3", borderRadius: 10, background: "#fff",
-                      fontSize: 14, cursor: pagina === 1 ? "not-allowed" : "pointer", color: pagina === 1 ? "#ccc" : "#444",
-                      fontFamily: "'DM Sans', sans-serif",
-                    }}>anterior</button>
-                    <span style={{ fontSize: 14, color: "#888", padding: "0 8px" }}>{pagina} de {totalPaginas}</span>
-                    <button onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))} disabled={pagina === totalPaginas} style={{
-                      padding: "10px 18px", border: "1.5px solid #ede9e3", borderRadius: 10, background: "#fff",
-                      fontSize: 14, cursor: pagina === totalPaginas ? "not-allowed" : "pointer", color: pagina === totalPaginas ? "#ccc" : "#444",
-                      fontFamily: "'DM Sans', sans-serif",
-                    }}>proximo</button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {aba === "estatisticas" && stats && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-
-            <div style={{ background: "#fff", borderRadius: 16, padding: 28, boxShadow: "0 2px 20px rgba(0,0,0,0.05)" }}>
-              <p style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#bbb", marginBottom: 20 }}>proxima por tarefa</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                {proximosPorTarefa.map((item) => (
-                  <div key={item.tarefa} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, padding: "14px 0", borderBottom: "1px solid #f5f2ee" }}>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 13, color: "#888", marginBottom: 6 }}>{item.tarefa}</p>
-                      <p style={{ fontSize: 12, color: "#bbb", fontStyle: "italic" }}>porque {item.motivo}</p>
-                    </div>
-                    <span style={{ fontSize: 14, fontWeight: 500, padding: "6px 16px", borderRadius: 20, background: CORES[item.pessoa] || "#eee", color: "#444", whiteSpace: "nowrap", flexShrink: 0 }}>
-                      {item.pessoa}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ background: "#fff", borderRadius: 16, padding: 28, boxShadow: "0 2px 20px rgba(0,0,0,0.05)" }}>
-              <p style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#bbb", marginBottom: 20 }}>total por pessoa</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                {stats.porPessoa.map((p) => (
-                  <div key={p.pessoa}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                      <span style={{ fontSize: 14, fontWeight: 500 }}>{p.pessoa}</span>
-                      <span style={{ fontSize: 14, color: "#888" }}>{p.total}x</span>
-                    </div>
-                    <div style={{ height: 8, background: "#f0ece6", borderRadius: 4, overflow: "hidden" }}>
-                      <div style={{
-                        height: "100%", borderRadius: 4,
-                        width: `${(Number(p.total) / maxTotal) * 100}%`,
-                        background: CORES[p.pessoa] || "#ccc", transition: "width 0.6s ease",
-                      }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ background: "#fff", borderRadius: 16, padding: 28, boxShadow: "0 2px 20px rgba(0,0,0,0.05)" }}>
-              <p style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#bbb", marginBottom: 20 }}>ultimos 30 dias</p>
-              {stats.ultimosPorTarefa.length === 0 ? (
-                <p style={{ fontSize: 14, color: "#bbb" }}>Nenhum registro neste periodo.</p>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {stats.ultimosPorTarefa.map((r, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "8px 0", borderBottom: "1px solid #f5f2ee" }}>
-                      <span style={{ color: "#444" }}>{r.tarefa}</span>
-                      <div style={{ display: "flex", gap: 12 }}>
-                        <span style={{ fontSize: 12, padding: "2px 10px", borderRadius: 20, background: CORES[r.pessoa] || "#eee", color: "#444" }}>{r.pessoa}</span>
-                        <span style={{ color: "#bbb", fontSize: 12 }}>{formatarData(r.data)}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div style={{ background: "#fff", borderRadius: 16, padding: 28, boxShadow: "0 2px 20px rgba(0,0,0,0.05)" }}>
-              <p style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#bbb", marginBottom: 20 }}>por tarefa</p>
-              {TAREFAS.map((t) => {
-                const dados = stats.porTarefa.filter((x) => x.tarefa === t);
-                if (dados.length === 0) return null;
-                return (
-                  <div key={t} style={{ marginBottom: 20 }}>
-                    <p style={{ fontSize: 13, color: "#888", marginBottom: 10 }}>{t}</p>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {dados.map((d) => (
-                        <div key={d.pessoa} style={{ padding: "6px 14px", borderRadius: 20, fontSize: 13, background: CORES[d.pessoa] || "#eee", color: "#444" }}>
-                          {d.pessoa} ({d.total}x)
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-          </div>
+        {confirmacao && (
+          <ConfirmSheet registro={confirmacao} aoFechar={() => setConfirmacao(null)} aoConfirmar={confirmarExclusao} />
         )}
       </div>
     </>
